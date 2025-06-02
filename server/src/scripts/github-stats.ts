@@ -17,10 +17,6 @@ interface Release {
   body?: string | null;
   draft: boolean;
   prerelease: boolean;
-  assets: {
-    name: string;
-    download_count: number;
-  }[];
 }
 
 interface RepoConfig {
@@ -30,10 +26,6 @@ interface RepoConfig {
 
 interface ReleaseStats {
   total_releases: number;
-  total_downloads: number;
-  avg_downloads_per_release: number;
-  total_assets: number;
-  avg_assets_per_release: number;
   first_release_date: string;
   latest_release_date: string;
   prerelease_count: number;
@@ -162,26 +154,36 @@ async function generateReleaseStats(repos: RepoConfig[]) {
     const statsByRepo: Record<string, ReleaseStats> = {};
     
     for (const { owner, repo } of repos) {
-      console.log(`${owner}/${repo}의 릴리스 데이터를 수집 중...`);
       const releases = await getReleases(owner, repo);
       
-      const records = releases.map(release => ({
-        repository: `${owner}/${repo}`,
-        tag_name: release.tag_name,
-        name: release.name || '',
-        created_at: new Date(release.created_at).toLocaleDateString(),
-        published_at: release.published_at ? new Date(release.published_at).toLocaleDateString() : '',
-        draft: release.draft,
-        prerelease: release.prerelease,
-        total_downloads: release.assets.reduce((sum, asset) => sum + asset.download_count, 0),
-        asset_count: release.assets.length,
-      }));
+      const records = releases.map(release => {
+        const publishedDate = release.published_at ? new Date(release.published_at) : null;
+        const createdDate = new Date(release.created_at);
+        
+        return {
+          repository: `${owner}/${repo}`,
+          tag_name: release.tag_name,
+          name: release.name || '',
+          created_at: createdDate.toLocaleDateString(),
+          published_at: publishedDate ? publishedDate.toLocaleDateString() : '',
+          created_at_iso: createdDate.toISOString(),
+          published_at_iso: publishedDate ? publishedDate.toISOString() : '',
+          year: publishedDate ? publishedDate.getFullYear() : null,
+          month: publishedDate ? publishedDate.getMonth() + 1 : null,
+          day: publishedDate ? publishedDate.getDate() : null,
+          day_of_week: publishedDate ? publishedDate.getDay() : null,
+          is_weekend: publishedDate ? (publishedDate.getDay() === 0 || publishedDate.getDay() === 6) : null,
+          draft: release.draft,
+          prerelease: release.prerelease,
+          body_length: release.body ? release.body.length : 0,
+          has_body: release.body ? true : false,
+          days_since_creation: publishedDate ? Math.floor((publishedDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : null
+        };
+      });
       
       allRecords.push(...records);
 
       // 통계 계산
-      const totalDownloads = records.reduce((sum, record) => sum + record.total_downloads, 0);
-      const totalAssets = records.reduce((sum, record) => sum + record.asset_count, 0);
       const prereleaseCount = records.filter(record => record.prerelease).length;
       const draftCount = records.filter(record => record.draft).length;
       
@@ -193,10 +195,6 @@ async function generateReleaseStats(repos: RepoConfig[]) {
       
       statsByRepo[`${owner}/${repo}`] = {
         total_releases: records.length,
-        total_downloads: totalDownloads,
-        avg_downloads_per_release: Math.round(totalDownloads / records.length),
-        total_assets: totalAssets,
-        avg_assets_per_release: Math.round(totalAssets / records.length),
         first_release_date: releaseDates.length > 0 ? new Date(Math.min(...releaseDates.map(d => d.getTime()))).toLocaleDateString() : 'N/A',
         latest_release_date: releaseDates.length > 0 ? new Date(Math.max(...releaseDates.map(d => d.getTime()))).toLocaleDateString() : 'N/A',
         prerelease_count: prereleaseCount,
@@ -223,15 +221,22 @@ async function generateReleaseStats(repos: RepoConfig[]) {
         { id: 'name', title: '릴리스명' },
         { id: 'created_at', title: '생성일' },
         { id: 'published_at', title: '배포일' },
+        { id: 'created_at_iso', title: '생성일(ISO)' },
+        { id: 'published_at_iso', title: '배포일(ISO)' },
+        { id: 'year', title: '배포년도' },
+        { id: 'month', title: '배포월' },
+        { id: 'day', title: '배포일' },
+        { id: 'day_of_week', title: '요일(0-6)' },
+        { id: 'is_weekend', title: '주말여부' },
         { id: 'draft', title: '초안여부' },
         { id: 'prerelease', title: '프리릴리스여부' },
-        { id: 'total_downloads', title: '총 다운로드수' },
-        { id: 'asset_count', title: '에셋 수' },
+        { id: 'body_length', title: '릴리스노트 길이' },
+        { id: 'has_body', title: '릴리스노트 존재여부' },
+        { id: 'days_since_creation', title: '생성일로부터 배포까지 일수' }
       ],
     });
 
     await csvWriter.writeRecords(allRecords);
-    console.log('CSV 파일이 성공적으로 생성되었습니다.');
 
     // 통계 정보 CSV
     const statsWriter = createObjectCsvWriter({
@@ -239,10 +244,6 @@ async function generateReleaseStats(repos: RepoConfig[]) {
       header: [
         { id: 'repository', title: '레포지토리' },
         { id: 'total_releases', title: '총 릴리스 수' },
-        { id: 'total_downloads', title: '총 다운로드 수' },
-        { id: 'avg_downloads_per_release', title: '릴리스당 평균 다운로드 수' },
-        { id: 'total_assets', title: '총 에셋 수' },
-        { id: 'avg_assets_per_release', title: '릴리스당 평균 에셋 수' },
         { id: 'first_release_date', title: '첫 릴리스 날짜' },
         { id: 'latest_release_date', title: '최신 릴리스 날짜' },
         { id: 'prerelease_count', title: '프리릴리스 수' },
@@ -256,7 +257,7 @@ async function generateReleaseStats(repos: RepoConfig[]) {
         { id: 'total_releases_last_year', title: '작년 총 릴리스 수' },
         { id: 'total_releases_last_6months', title: '지난 6개월 총 릴리스 수' },
         { id: 'total_releases_last_3months', title: '지난 3개월 총 릴리스 수' },
-        { id: 'total_releases_last_month', title: '지난 1개월 총 릴리스 수' },
+        { id: 'total_releases_last_month', title: '지난 1개월 총 릴리스 수' }
       ],
     });
 
@@ -266,7 +267,6 @@ async function generateReleaseStats(repos: RepoConfig[]) {
     }));
 
     await statsWriter.writeRecords(statsRecords);
-    console.log('통계 요약 CSV 파일이 성공적으로 생성되었습니다.');
   } catch (error) {
     console.error('에러 발생:', error);
   }
