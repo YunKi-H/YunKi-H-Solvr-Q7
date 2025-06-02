@@ -41,6 +41,9 @@ interface ReleaseStats {
   releases_per_year: number;
   releases_per_week: number;
   releases_per_day: number;
+  total_releases_this_year: number;
+  total_releases_this_week: number;
+  total_releases_today: number;
 }
 
 async function getReleases(owner: string, repo: string): Promise<Release[]> {
@@ -72,8 +75,22 @@ async function getReleases(owner: string, repo: string): Promise<Release[]> {
   }
 }
 
-function calculateTimeBasedStats(releaseDates: Date[]): { perYear: number; perWeek: number; perDay: number } {
-  if (releaseDates.length === 0) return { perYear: 0, perWeek: 0, perDay: 0 };
+function calculateTimeBasedStats(releaseDates: Date[]): { 
+  perYear: number; 
+  perWeek: number; 
+  perDay: number;
+  thisYear: number;
+  thisWeek: number;
+  today: number;
+} {
+  if (releaseDates.length === 0) return { 
+    perYear: 0, 
+    perWeek: 0, 
+    perDay: 0,
+    thisYear: 0,
+    thisWeek: 0,
+    today: 0
+  };
 
   const sortedDates = releaseDates.sort((a, b) => a.getTime() - b.getTime());
   const firstDate = sortedDates[0];
@@ -83,10 +100,18 @@ function calculateTimeBasedStats(releaseDates: Date[]): { perYear: number; perWe
   const yearsDiff = daysDiff / 365;
   const weeksDiff = daysDiff / 7;
 
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+  const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+
   return {
     perYear: Math.round((releaseDates.length / yearsDiff) * 100) / 100,
     perWeek: Math.round((releaseDates.length / weeksDiff) * 100) / 100,
     perDay: Math.round((releaseDates.length / daysDiff) * 100) / 100,
+    thisYear: releaseDates.filter(date => date >= startOfYear).length,
+    thisWeek: releaseDates.filter(date => date >= startOfWeek).length,
+    today: releaseDates.filter(date => date >= startOfDay).length
   };
 }
 
@@ -138,6 +163,9 @@ async function generateReleaseStats(repos: RepoConfig[]) {
         releases_per_year: timeStats.perYear,
         releases_per_week: timeStats.perWeek,
         releases_per_day: timeStats.perDay,
+        total_releases_this_year: timeStats.thisYear,
+        total_releases_this_week: timeStats.thisWeek,
+        total_releases_today: timeStats.today,
       };
     }
     
@@ -177,6 +205,9 @@ async function generateReleaseStats(repos: RepoConfig[]) {
         { id: 'releases_per_year', title: '연간 평균 릴리스 수' },
         { id: 'releases_per_week', title: '주간 평균 릴리스 수' },
         { id: 'releases_per_day', title: '일간 평균 릴리스 수' },
+        { id: 'total_releases_this_year', title: '올해 총 릴리스 수' },
+        { id: 'total_releases_this_week', title: '이번 주 총 릴리스 수' },
+        { id: 'total_releases_today', title: '오늘 총 릴리스 수' },
       ],
     });
 
