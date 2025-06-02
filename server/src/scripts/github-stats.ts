@@ -84,10 +84,6 @@ function isWeekday(date: Date): boolean {
   return day !== 0 && day !== 6; // 0: 일요일, 6: 토요일
 }
 
-function toKST(date: Date): Date {
-  return new Date(date.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
-}
-
 function calculateTimeBasedStats(releaseDates: Date[]): { 
   perYear: number; 
   perWeek: number; 
@@ -113,10 +109,8 @@ function calculateTimeBasedStats(releaseDates: Date[]): {
     lastMonth: 0
   };
 
-  // 평일 릴리스만 필터링하고 KST로 변환
-  const weekdayReleases = releaseDates
-    .map(date => toKST(date))
-    .filter(date => isWeekday(date));
+  // 평일 릴리스만 필터링
+  const weekdayReleases = releaseDates.filter(date => isWeekday(date));
   const sortedDates = weekdayReleases.sort((a, b) => a.getTime() - b.getTime());
   const firstDate = sortedDates[0];
   const lastDate = sortedDates[sortedDates.length - 1];
@@ -125,12 +119,12 @@ function calculateTimeBasedStats(releaseDates: Date[]): {
   const yearsDiff = daysDiff / 365;
   const weeksDiff = daysDiff / 7;
 
-  const now = toKST(new Date());
+  const now = new Date();
   const startOfYear = new Date(now.getFullYear(), 0, 1);
   const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
   const startOfDay = new Date(now.setHours(0, 0, 0, 0));
   
-  // 이전 기간의 시작일 계산 (KST 기준)
+  // 이전 기간의 시작일 계산
   const oneYearAgo = new Date(now);
   oneYearAgo.setFullYear(now.getFullYear() - 1);
   
@@ -175,8 +169,8 @@ async function generateReleaseStats(repos: RepoConfig[]) {
         repository: `${owner}/${repo}`,
         tag_name: release.tag_name,
         name: release.name || '',
-        created_at: toKST(new Date(release.created_at)).toLocaleDateString(),
-        published_at: release.published_at ? toKST(new Date(release.published_at)).toLocaleDateString() : '',
+        created_at: new Date(release.created_at).toLocaleDateString(),
+        published_at: release.published_at ? new Date(release.published_at).toLocaleDateString() : '',
         draft: release.draft,
         prerelease: release.prerelease,
         total_downloads: release.assets.reduce((sum, asset) => sum + asset.download_count, 0),
@@ -203,8 +197,8 @@ async function generateReleaseStats(repos: RepoConfig[]) {
         avg_downloads_per_release: Math.round(totalDownloads / records.length),
         total_assets: totalAssets,
         avg_assets_per_release: Math.round(totalAssets / records.length),
-        first_release_date: releaseDates.length > 0 ? toKST(new Date(Math.min(...releaseDates.map(d => d.getTime())))).toLocaleDateString() : 'N/A',
-        latest_release_date: releaseDates.length > 0 ? toKST(new Date(Math.max(...releaseDates.map(d => d.getTime())))).toLocaleDateString() : 'N/A',
+        first_release_date: releaseDates.length > 0 ? new Date(Math.min(...releaseDates.map(d => d.getTime()))).toLocaleDateString() : 'N/A',
+        latest_release_date: releaseDates.length > 0 ? new Date(Math.max(...releaseDates.map(d => d.getTime()))).toLocaleDateString() : 'N/A',
         prerelease_count: prereleaseCount,
         draft_count: draftCount,
         releases_per_year: timeStats.perYear,
