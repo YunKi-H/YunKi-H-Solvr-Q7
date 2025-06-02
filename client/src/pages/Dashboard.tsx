@@ -4,8 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
 } from 'recharts';
-import { format, parseISO, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
 interface ReleaseData {
   repository: string;
