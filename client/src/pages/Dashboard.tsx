@@ -6,33 +6,35 @@ import {
 } from 'recharts';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
-interface ReleaseData {
-  repository: string;
-  tag_name: string;
-  name: string;
-  created_at: string;
-  published_at: string;
-  created_at_iso: string;
-  published_at_iso: string;
-  published_year: string;
-  published_month: string;
-  published_day: string;
-  weekday: string;
-  is_weekend: string;
-  is_draft: string;
-  is_prerelease: string;
-  release_note_length: string;
-  has_release_note: string;
-  days_to_publish: string;
+interface DashboardData {
+  monthlyData: Array<{
+    month: string;
+    [key: string]: string | number;
+  }>;
+  weekdayData: Array<{
+    name: string;
+    value: number;
+  }>;
+  releaseTypeData: Array<{
+    name: string;
+    value: number;
+  }>;
+  statistics: {
+    totalReleases: number;
+    preReleases: number;
+    averageReleaseInterval: number;
+  };
+  repositories: string[];
 }
 
-interface MonthlyData {
-  month: string;
-  [key: string]: string | number;
-}
+const TYPE_COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
+const CHART_COLORS = [
+  '#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088fe',
+  '#00c49f', '#ffbb28', '#ff8042', '#a4de6c', '#d0ed57'
+];
 
 const Dashboard: React.FC = () => {
-  const [data, setData] = useState<ReleaseData[]>([]);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRepo, setSelectedRepo] = useState<string>('all');
@@ -42,12 +44,14 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch(`/api/data?startDate=${startDate}&endDate=${endDate}`);
+        setLoading(true);
+        const response = await fetch(
+          `/api/data?startDate=${startDate}&endDate=${endDate}&repository=${selectedRepo}`
+        );
         if (!response.ok) {
           throw new Error('데이터를 불러오는데 실패했습니다.');
         }
         const jsonData = await response.json();
-        console.log('API 응답 데이터:', jsonData);
         setData(jsonData);
       } catch (err) {
         console.error('데이터 로딩 에러:', err);
@@ -58,93 +62,7 @@ const Dashboard: React.FC = () => {
     };
 
     fetchData();
-  }, [startDate, endDate]);
-
-  // 선택된 레포지토리에 따라 데이터 필터링
-  const filteredData = selectedRepo === 'all' 
-    ? data 
-    : data.filter(item => item.repository === selectedRepo);
-
-  // 모든 레포지토리 목록 가져오기 (원본 데이터에서)
-  const repositories = Array.from(new Set(data.map(item => item.repository)));
-
-  // 레포지토리별 월별 릴리스 수 계산
-  const monthlyData = filteredData.reduce((acc: { [key: string]: { [key: string]: number } }, curr) => {
-    const dateStr = curr.published_at_iso || curr.published_at;
-    const date = new Date(dateStr);
-    
-    if (isNaN(date.getTime())) {
-      console.error('유효하지 않은 날짜:', dateStr);
-      return acc;
-    }
-
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    const repo = curr.repository;
-
-    if (!acc[monthKey]) {
-      acc[monthKey] = {};
-    }
-    acc[monthKey][repo] = (acc[monthKey][repo] || 0) + 1;
-    return acc;
-  }, {});
-
-  // 모든 월 목록 구하기
-  const allMonths = Array.from(new Set(filteredData.map(item => {
-    const dateStr = item.published_at_iso || item.published_at;
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return null;
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-  }))).filter((v): v is string => !!v).sort();
-
-  // 월별 데이터 생성 (모든 월-레포지토리 조합에 대해 값이 없으면 0)
-  const chartData: MonthlyData[] = allMonths.map(month => {
-    const monthData = monthlyData[month] || {};
-    const row: MonthlyData = { month };
-    repositories.forEach(repo => {
-      row[repo] = monthData[repo] || 0;
-    });
-    return row;
-  });
-
-  // 요일별 릴리스 수 계산
-  const weekdayData = filteredData.reduce<Record<string, number>>((acc, curr) => {
-    const weekday = curr.weekday;
-    acc[weekday] = (acc[weekday] || 0) + 1;
-    return acc;
-  }, {});
-
-  const weekdayChartData = Object.entries(weekdayData).map(([weekday, count]) => ({
-    name: ['일', '월', '화', '수', '목', '금', '토'][parseInt(weekday, 10)],
-    value: count
-  }));
-
-  // 릴리스 타입 분석 데이터
-  const releaseTypeData: Array<{ name: string; value: number }> = [
-    { name: '일반 릴리스', value: filteredData.filter(item => item.is_prerelease === 'false' && item.is_draft === 'false').length },
-    { name: '프리릴리스', value: filteredData.filter(item => item.is_prerelease === 'true').length },
-    { name: '초안', value: filteredData.filter(item => item.is_draft === 'true').length }
-  ];
-
-  const TYPE_COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
-
-  // 차트 색상 배열
-  const colors = [
-    '#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088fe',
-    '#00c49f', '#ffbb28', '#ff8042', '#a4de6c', '#d0ed57'
-  ];
-
-  // 평균 릴리스 간격 계산
-  const sortedDates = filteredData
-    .map(item => new Date(item.published_at_iso || item.published_at))
-    .filter(date => !isNaN(date.getTime()))
-    .sort((a, b) => a.getTime() - b.getTime());
-
-  const averageReleaseInterval = sortedDates.length > 1
-    ? Math.round(
-        (sortedDates[sortedDates.length - 1].getTime() - sortedDates[0].getTime()) /
-        (1000 * 60 * 60 * 24 * (sortedDates.length - 1))
-      )
-    : 0;
+  }, [startDate, endDate, selectedRepo]);
 
   if (loading) {
     return <Typography>데이터를 불러오는 중...</Typography>;
@@ -154,8 +72,8 @@ const Dashboard: React.FC = () => {
     return <Typography color="error">{error}</Typography>;
   }
 
-  if (chartData.length === 0) {
-    return <Typography>표시할 데이터가 없습니다.</Typography>;
+  if (!data) {
+    return <Typography>데이터가 없습니다.</Typography>;
   }
 
   return (
@@ -174,7 +92,7 @@ const Dashboard: React.FC = () => {
             onChange={(e) => setSelectedRepo(e.target.value)}
           >
             <MenuItem value="all">전체</MenuItem>
-            {Array.from(new Set(data.map(item => item.repository))).map(repo => (
+            {data.repositories.map(repo => (
               <MenuItem key={repo} value={repo}>{repo}</MenuItem>
             ))}
           </Select>
@@ -206,7 +124,7 @@ const Dashboard: React.FC = () => {
               </Typography>
               <div style={{ width: '100%', height: 400 }}>
                 <ResponsiveContainer>
-                  <LineChart data={chartData}>
+                  <LineChart data={data.monthlyData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="month" 
@@ -223,13 +141,13 @@ const Dashboard: React.FC = () => {
                       }}
                     />
                     <Legend />
-                    {repositories.map((repo, index) => (
+                    {data.repositories.map((repo, index) => (
                       <Line
                         key={repo}
                         type="monotone"
                         dataKey={repo}
                         name={repo?.split('/')?.[1] || repo}
-                        stroke={colors[index % colors.length]}
+                        stroke={CHART_COLORS[index % CHART_COLORS.length]}
                         activeDot={{ r: 8 }}
                       />
                     ))}
@@ -249,7 +167,7 @@ const Dashboard: React.FC = () => {
                 </Typography>
                 <div style={{ width: '100%', height: 300 }}>
                   <ResponsiveContainer>
-                    <BarChart data={weekdayChartData}>
+                    <BarChart data={data.weekdayData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
@@ -272,7 +190,7 @@ const Dashboard: React.FC = () => {
                   <ResponsiveContainer>
                     <PieChart>
                       <Pie
-                        data={releaseTypeData}
+                        data={data.releaseTypeData}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
@@ -281,7 +199,7 @@ const Dashboard: React.FC = () => {
                         fill="#8884d8"
                         dataKey="value"
                       >
-                        {releaseTypeData.map((_, index) => (
+                        {data.releaseTypeData.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={TYPE_COLORS[index % TYPE_COLORS.length]} />
                         ))}
                       </Pie>
@@ -303,18 +221,18 @@ const Dashboard: React.FC = () => {
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
                 <Box>
                   <Typography variant="subtitle1">총 릴리스 수</Typography>
-                  <Typography variant="h4">{filteredData.length}</Typography>
+                  <Typography variant="h4">{data.statistics.totalReleases}</Typography>
                 </Box>
                 <Box>
                   <Typography variant="subtitle1">프리릴리스</Typography>
                   <Typography variant="h4">
-                    {filteredData.filter(item => item.is_prerelease === 'true').length}
+                    {data.statistics.preReleases}
                   </Typography>
                 </Box>
                 <Box>
                   <Typography variant="subtitle1">평균 릴리스 간격</Typography>
                   <Typography variant="h4">
-                    {averageReleaseInterval}일
+                    {data.statistics.averageReleaseInterval}일
                   </Typography>
                 </Box>
               </Box>
