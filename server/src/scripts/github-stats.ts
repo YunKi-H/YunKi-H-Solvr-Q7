@@ -28,6 +28,21 @@ interface RepoConfig {
   repo: string;
 }
 
+interface ReleaseStats {
+  total_releases: number;
+  total_downloads: number;
+  avg_downloads_per_release: number;
+  total_assets: number;
+  avg_assets_per_release: number;
+  first_release_date: string;
+  latest_release_date: string;
+  prerelease_count: number;
+  draft_count: number;
+  releases_per_year: number;
+  releases_per_week: number;
+  releases_per_day: number;
+}
+
 async function getReleases(owner: string, repo: string): Promise<Release[]> {
   try {
     const allReleases: Release[] = [];
@@ -57,9 +72,28 @@ async function getReleases(owner: string, repo: string): Promise<Release[]> {
   }
 }
 
+function calculateTimeBasedStats(releaseDates: Date[]): { perYear: number; perWeek: number; perDay: number } {
+  if (releaseDates.length === 0) return { perYear: 0, perWeek: 0, perDay: 0 };
+
+  const sortedDates = releaseDates.sort((a, b) => a.getTime() - b.getTime());
+  const firstDate = sortedDates[0];
+  const lastDate = sortedDates[sortedDates.length - 1];
+  
+  const daysDiff = Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
+  const yearsDiff = daysDiff / 365;
+  const weeksDiff = daysDiff / 7;
+
+  return {
+    perYear: Math.round((releaseDates.length / yearsDiff) * 100) / 100,
+    perWeek: Math.round((releaseDates.length / weeksDiff) * 100) / 100,
+    perDay: Math.round((releaseDates.length / daysDiff) * 100) / 100,
+  };
+}
+
 async function generateReleaseStats(repos: RepoConfig[]) {
   try {
     const allRecords = [];
+    const statsByRepo: Record<string, ReleaseStats> = {};
     
     for (const { owner, repo } of repos) {
       console.log(`${owner}/${repo}의 릴리스 데이터를 수집 중...`);
@@ -78,8 +112,36 @@ async function generateReleaseStats(repos: RepoConfig[]) {
       }));
       
       allRecords.push(...records);
+
+      // 통계 계산
+      const totalDownloads = records.reduce((sum, record) => sum + record.total_downloads, 0);
+      const totalAssets = records.reduce((sum, record) => sum + record.asset_count, 0);
+      const prereleaseCount = records.filter(record => record.prerelease).length;
+      const draftCount = records.filter(record => record.draft).length;
+      
+      const releaseDates = records
+        .filter(record => record.published_at)
+        .map(record => new Date(record.published_at));
+
+      const timeStats = calculateTimeBasedStats(releaseDates);
+      
+      statsByRepo[`${owner}/${repo}`] = {
+        total_releases: records.length,
+        total_downloads: totalDownloads,
+        avg_downloads_per_release: Math.round(totalDownloads / records.length),
+        total_assets: totalAssets,
+        avg_assets_per_release: Math.round(totalAssets / records.length),
+        first_release_date: releaseDates.length > 0 ? new Date(Math.min(...releaseDates.map(d => d.getTime()))).toLocaleDateString() : 'N/A',
+        latest_release_date: releaseDates.length > 0 ? new Date(Math.max(...releaseDates.map(d => d.getTime()))).toLocaleDateString() : 'N/A',
+        prerelease_count: prereleaseCount,
+        draft_count: draftCount,
+        releases_per_year: timeStats.perYear,
+        releases_per_week: timeStats.perWeek,
+        releases_per_day: timeStats.perDay,
+      };
     }
     
+    // 상세 데이터 CSV
     const csvWriter = createObjectCsvWriter({
       path: path.join(__dirname, 'release-stats.csv'),
       header: [
@@ -97,6 +159,34 @@ async function generateReleaseStats(repos: RepoConfig[]) {
 
     await csvWriter.writeRecords(allRecords);
     console.log('CSV 파일이 성공적으로 생성되었습니다.');
+
+    // 통계 정보 CSV
+    const statsWriter = createObjectCsvWriter({
+      path: path.join(__dirname, 'release-summary.csv'),
+      header: [
+        { id: 'repository', title: '레포지토리' },
+        { id: 'total_releases', title: '총 릴리스 수' },
+        { id: 'total_downloads', title: '총 다운로드 수' },
+        { id: 'avg_downloads_per_release', title: '릴리스당 평균 다운로드 수' },
+        { id: 'total_assets', title: '총 에셋 수' },
+        { id: 'avg_assets_per_release', title: '릴리스당 평균 에셋 수' },
+        { id: 'first_release_date', title: '첫 릴리스 날짜' },
+        { id: 'latest_release_date', title: '최신 릴리스 날짜' },
+        { id: 'prerelease_count', title: '프리릴리스 수' },
+        { id: 'draft_count', title: '초안 수' },
+        { id: 'releases_per_year', title: '연간 평균 릴리스 수' },
+        { id: 'releases_per_week', title: '주간 평균 릴리스 수' },
+        { id: 'releases_per_day', title: '일간 평균 릴리스 수' },
+      ],
+    });
+
+    const statsRecords = Object.entries(statsByRepo).map(([repo, stats]) => ({
+      repository: repo,
+      ...stats,
+    }));
+
+    await statsWriter.writeRecords(statsRecords);
+    console.log('통계 요약 CSV 파일이 성공적으로 생성되었습니다.');
   } catch (error) {
     console.error('에러 발생:', error);
   }
