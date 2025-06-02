@@ -44,6 +44,10 @@ interface ReleaseStats {
   total_releases_this_year: number;
   total_releases_this_week: number;
   total_releases_today: number;
+  total_releases_last_year: number;
+  total_releases_last_6months: number;
+  total_releases_last_3months: number;
+  total_releases_last_month: number;
 }
 
 async function getReleases(owner: string, repo: string): Promise<Release[]> {
@@ -82,6 +86,10 @@ function calculateTimeBasedStats(releaseDates: Date[]): {
   thisYear: number;
   thisWeek: number;
   today: number;
+  lastYear: number;
+  last6Months: number;
+  last3Months: number;
+  lastMonth: number;
 } {
   if (releaseDates.length === 0) return { 
     perYear: 0, 
@@ -89,7 +97,11 @@ function calculateTimeBasedStats(releaseDates: Date[]): {
     perDay: 0,
     thisYear: 0,
     thisWeek: 0,
-    today: 0
+    today: 0,
+    lastYear: 0,
+    last6Months: 0,
+    last3Months: 0,
+    lastMonth: 0
   };
 
   const sortedDates = releaseDates.sort((a, b) => a.getTime() - b.getTime());
@@ -104,6 +116,19 @@ function calculateTimeBasedStats(releaseDates: Date[]): {
   const startOfYear = new Date(now.getFullYear(), 0, 1);
   const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
   const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+  
+  // 이전 기간의 시작일 계산
+  const oneYearAgo = new Date(now);
+  oneYearAgo.setFullYear(now.getFullYear() - 1);
+  
+  const sixMonthsAgo = new Date(now);
+  sixMonthsAgo.setMonth(now.getMonth() - 6);
+  
+  const threeMonthsAgo = new Date(now);
+  threeMonthsAgo.setMonth(now.getMonth() - 3);
+  
+  const oneMonthAgo = new Date(now);
+  oneMonthAgo.setMonth(now.getMonth() - 1);
 
   return {
     perYear: Math.round((releaseDates.length / yearsDiff) * 100) / 100,
@@ -111,7 +136,11 @@ function calculateTimeBasedStats(releaseDates: Date[]): {
     perDay: Math.round((releaseDates.length / daysDiff) * 100) / 100,
     thisYear: releaseDates.filter(date => date >= startOfYear).length,
     thisWeek: releaseDates.filter(date => date >= startOfWeek).length,
-    today: releaseDates.filter(date => date >= startOfDay).length
+    today: releaseDates.filter(date => date >= startOfDay).length,
+    lastYear: releaseDates.filter(date => date >= oneYearAgo && date < startOfYear).length,
+    last6Months: releaseDates.filter(date => date >= sixMonthsAgo && date < threeMonthsAgo).length,
+    last3Months: releaseDates.filter(date => date >= threeMonthsAgo && date < oneMonthAgo).length,
+    lastMonth: releaseDates.filter(date => date >= oneMonthAgo && date < startOfDay).length
   };
 }
 
@@ -166,6 +195,10 @@ async function generateReleaseStats(repos: RepoConfig[]) {
         total_releases_this_year: timeStats.thisYear,
         total_releases_this_week: timeStats.thisWeek,
         total_releases_today: timeStats.today,
+        total_releases_last_year: timeStats.lastYear,
+        total_releases_last_6months: timeStats.last6Months,
+        total_releases_last_3months: timeStats.last3Months,
+        total_releases_last_month: timeStats.lastMonth,
       };
     }
     
@@ -208,6 +241,10 @@ async function generateReleaseStats(repos: RepoConfig[]) {
         { id: 'total_releases_this_year', title: '올해 총 릴리스 수' },
         { id: 'total_releases_this_week', title: '이번 주 총 릴리스 수' },
         { id: 'total_releases_today', title: '오늘 총 릴리스 수' },
+        { id: 'total_releases_last_year', title: '작년 총 릴리스 수' },
+        { id: 'total_releases_last_6months', title: '지난 6개월 총 릴리스 수' },
+        { id: 'total_releases_last_3months', title: '지난 3개월 총 릴리스 수' },
+        { id: 'total_releases_last_month', title: '지난 1개월 총 릴리스 수' },
       ],
     });
 
