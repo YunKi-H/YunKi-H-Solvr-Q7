@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, Typography, Box } from '@mui/material';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, Cell
+} from 'recharts';
 
 interface ReleaseData {
   repository: string;
@@ -94,6 +97,57 @@ const Dashboard: React.FC = () => {
     return row;
   });
 
+  // 요일별 릴리스 수 계산
+  const weekdayData = data.reduce((acc: { [key: string]: number }, curr) => {
+    const weekday = curr.weekday;
+    acc[weekday] = (acc[weekday] || 0) + 1;
+    return acc;
+  }, {});
+
+  const weekdayChartData = Object.entries(weekdayData).map(([weekday, count]) => ({
+    name: ['일', '월', '화', '수', '목', '금', '토'][parseInt(weekday)],
+    value: count
+  }));
+
+  // 릴리스 노트 분석 데이터
+  const releaseNoteData = [
+    { name: '릴리스 노트 있음', value: data.filter(item => item.has_release_note === 'true').length },
+    { name: '릴리스 노트 없음', value: data.filter(item => item.has_release_note === 'false').length }
+  ];
+
+  const COLORS = ['#0088FE', '#FF8042'];
+
+  // 릴리스 타입 분석 데이터
+  const releaseTypeData = [
+    { name: '일반 릴리스', value: data.filter(item => item.is_prerelease === 'false' && item.is_draft === 'false').length },
+    { name: '프리릴리스', value: data.filter(item => item.is_prerelease === 'true').length },
+    { name: '초안', value: data.filter(item => item.is_draft === 'true').length }
+  ];
+
+  const TYPE_COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
+
+  // 릴리스 생성부터 배포까지의 시간 간격 분석 데이터
+  const timeIntervalData = data.reduce((acc: { [key: string]: number }, curr) => {
+    const days = Math.floor(parseFloat(curr.days_to_publish));
+    if (!isNaN(days)) {
+      const range = Math.floor(days / 7) * 7; // 7일 단위로 그룹화
+      const key = `${range}-${range + 6}일`;
+      acc[key] = (acc[key] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
+  const timeIntervalChartData = Object.entries(timeIntervalData)
+    .sort((a, b) => {
+      const aStart = parseInt(a[0].split('-')[0]);
+      const bStart = parseInt(b[0].split('-')[0]);
+      return aStart - bStart;
+    })
+    .map(([range, count]) => ({
+      name: range,
+      value: count
+    }));
+
   console.log('월별 데이터:', monthlyData);
   console.log('차트 데이터:', chartData);
 
@@ -159,6 +213,115 @@ const Dashboard: React.FC = () => {
             </CardContent>
           </Card>
         </Box>
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+          <Box>
+            <Card>
+              <CardContent>
+                <Typography variant="h5" gutterBottom>
+                  요일별 릴리스 분포
+                </Typography>
+                <div style={{ width: '100%', height: 300 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={weekdayChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#8884d8" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </Box>
+
+          <Box>
+            <Card>
+              <CardContent>
+                <Typography variant="h5" gutterBottom>
+                  릴리스 노트 분석
+                </Typography>
+                <div style={{ width: '100%', height: 300 }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={releaseNoteData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {releaseNoteData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </Box>
+        </Box>
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+          <Box>
+            <Card>
+              <CardContent>
+                <Typography variant="h5" gutterBottom>
+                  릴리스 타입 분석
+                </Typography>
+                <div style={{ width: '100%', height: 300 }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={releaseTypeData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {releaseTypeData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={TYPE_COLORS[index % TYPE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </Box>
+
+          <Box>
+            <Card>
+              <CardContent>
+                <Typography variant="h5" gutterBottom>
+                  릴리스 생성부터 배포까지의 시간 간격
+                </Typography>
+                <div style={{ width: '100%', height: 300 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={timeIntervalChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#82ca9d" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </Box>
+        </Box>
+
         <Box>
           <Card>
             <CardContent>
