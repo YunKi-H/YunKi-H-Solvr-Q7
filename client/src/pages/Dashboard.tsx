@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, Typography, Box, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Card, CardContent, Typography, Box, FormControl, InputLabel, Select, MenuItem, TextField } from '@mui/material';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
 } from 'recharts';
+import { format, parseISO, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { ko } from 'date-fns/locale';
 
 interface ReleaseData {
   repository: string;
@@ -35,11 +37,13 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRepo, setSelectedRepo] = useState<string>('all');
+  const [startDate, setStartDate] = useState<string>(format(startOfMonth(subMonths(new Date(), 11)), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState<string>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('/api/data');
+        const response = await fetch(`/api/data?startDate=${startDate}&endDate=${endDate}`);
         if (!response.ok) {
           throw new Error('데이터를 불러오는데 실패했습니다.');
         }
@@ -55,7 +59,7 @@ const Dashboard: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [startDate, endDate]);
 
   // 선택된 레포지토리에 따라 데이터 필터링
   const filteredData = selectedRepo === 'all' 
@@ -156,26 +160,45 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <Box sx={{ padding: '20px' }}>
-      <Box sx={{ display: 'grid', gap: 3 }}>
-        <Box>
-          <FormControl fullWidth sx={{ mb: 3 }}>
-            <InputLabel>레포지토리 선택</InputLabel>
-            <Select
-              value={selectedRepo}
-              label="레포지토리 선택"
-              onChange={(e) => setSelectedRepo(e.target.value)}
-            >
-              <MenuItem value="all">전체</MenuItem>
-              {repositories.map((repo) => (
-                <MenuItem key={repo} value={repo}>
-                  {repo.split('/')[1] || repo}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        릴리스 대시보드
+      </Typography>
 
+      {/* 필터 섹션 */}
+      <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+        <FormControl sx={{ minWidth: 200 }}>
+          <InputLabel>레포지토리</InputLabel>
+          <Select
+            value={selectedRepo}
+            label="레포지토리"
+            onChange={(e) => setSelectedRepo(e.target.value)}
+          >
+            <MenuItem value="all">전체</MenuItem>
+            {Array.from(new Set(data.map(item => item.repository))).map(repo => (
+              <MenuItem key={repo} value={repo}>{repo}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <TextField
+          label="시작일"
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+        />
+
+        <TextField
+          label="종료일"
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+        />
+      </Box>
+
+      <Box sx={{ display: 'grid', gap: 3 }}>
         <Box>
           <Card>
             <CardContent>
