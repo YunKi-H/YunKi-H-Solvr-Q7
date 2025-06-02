@@ -96,7 +96,7 @@ const Dashboard: React.FC = () => {
   // 월별 데이터 생성 (모든 월-레포지토리 조합에 대해 값이 없으면 0)
   const chartData: MonthlyData[] = allMonths.map(month => {
     const monthData = monthlyData[month] || {};
-    const row: any = { month };
+    const row: MonthlyData = { month };
     repositories.forEach(repo => {
       row[repo] = monthData[repo] || 0;
     });
@@ -104,19 +104,19 @@ const Dashboard: React.FC = () => {
   });
 
   // 요일별 릴리스 수 계산
-  const weekdayData = filteredData.reduce((acc: { [key: string]: number }, curr) => {
+  const weekdayData = filteredData.reduce<Record<string, number>>((acc, curr) => {
     const weekday = curr.weekday;
     acc[weekday] = (acc[weekday] || 0) + 1;
     return acc;
   }, {});
 
   const weekdayChartData = Object.entries(weekdayData).map(([weekday, count]) => ({
-    name: ['일', '월', '화', '수', '목', '금', '토'][parseInt(weekday)],
+    name: ['일', '월', '화', '수', '목', '금', '토'][parseInt(weekday, 10)],
     value: count
   }));
 
   // 릴리스 타입 분석 데이터
-  const releaseTypeData = [
+  const releaseTypeData: Array<{ name: string; value: number }> = [
     { name: '일반 릴리스', value: filteredData.filter(item => item.is_prerelease === 'false' && item.is_draft === 'false').length },
     { name: '프리릴리스', value: filteredData.filter(item => item.is_prerelease === 'true').length },
     { name: '초안', value: filteredData.filter(item => item.is_draft === 'true').length }
@@ -259,7 +259,7 @@ const Dashboard: React.FC = () => {
                         fill="#8884d8"
                         dataKey="value"
                       >
-                        {releaseTypeData.map((entry, index) => (
+                        {releaseTypeData.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={TYPE_COLORS[index % TYPE_COLORS.length]} />
                         ))}
                       </Pie>
