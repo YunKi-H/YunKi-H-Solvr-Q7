@@ -30,11 +30,27 @@ interface RepoConfig {
 
 async function getReleases(owner: string, repo: string): Promise<Release[]> {
   try {
-    const releases = await octokit.repos.listReleases({
-      owner,
-      repo,
-    });
-    return releases.data;
+    const allReleases: Release[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const releases = await octokit.repos.listReleases({
+        owner,
+        repo,
+        per_page: 100,
+        page,
+      });
+
+      if (releases.data.length === 0) {
+        hasMore = false;
+      } else {
+        allReleases.push(...releases.data);
+        page++;
+      }
+    }
+
+    return allReleases;
   } catch (error) {
     console.error(`${owner}/${repo}의 릴리스 데이터를 가져오는 중 오류 발생:`, error);
     return [];
