@@ -1,30 +1,36 @@
-# 풀스택 서비스 보일러 플레이트
+# GitHub 릴리스 분석 대시보드
 
-## 프로젝트 개요
+GitHub 레포지토리의 릴리스 데이터를 수집하고 분석하여 시각화하는 대시보드 애플리케이션입니다.
 
-이 보일러 플레이트는 풀스택 웹 애플리케이션 개발을 위한 기본 구조를 제공합니다. monorepo 구조로 클라이언트와 서버를 효율적으로 관리하며, 현대적인 웹 개발 기술 스택을 활용합니다.
+## 주요 기능
+
+- **릴리스 통계 분석**
+  - 레포지토리별 월간 릴리스 추이
+  - 요일별 릴리스 분포
+  - 릴리스 타입 분석 (일반/프리릴리스/초안)
+  - 평균 릴리스 간격
+
+- **데이터 필터링**
+  - 기간별 데이터 조회
+  - 레포지토리별 데이터 필터링
+
+- **자동 데이터 수집**
+  - GitHub API를 통한 실시간 데이터 수집
+  - 주기적인 데이터 업데이트
 
 ## 기술 스택
 
-### 공통
+- **프론트엔드**
+  - React
+  - TypeScript
+  - Material-UI
+  - Recharts
 
-- 패키지 매니저: pnpm (workspace 기능 활용)
-- 언어: TypeScript
-- Node.js 버전: 22.x
-- 테스트: Vitest
-- 코드 품질: Prettier
-
-### 클라이언트
-
-- 프레임워크: React
-- 빌드 도구: Vite
-- 라우팅: React Router
-- 스타일링: TailwindCSS
-
-### 서버
-
-- 프레임워크: Fastify
-- 데이터베이스: SQLite with DirzzleORM
+- **백엔드**
+  - Node.js
+  - Fastify
+  - TypeScript
+  - Octokit
 
 ## 설치 및 실행
 
@@ -75,11 +81,10 @@ pnpm build
 
 ## API 엔드포인트
 
-서버는 다음과 같은 기본 API 엔드포인트를 제공합니다:
+서버는 다음과 같은 API 엔드포인트를 제공합니다:
 
-- `GET /api/health`: 서버 상태 확인
-- `GET /api/users`: 유저 목록 조회
-- `GET /api/users/:id`: 특정 유저 조회
-- `POST /api/users`: 새 유저 추가
-- `PUT /api/users/:id`: 유저 정보 수정
-- `DELETE /api/users/:id`: 유저 삭제
+- `GET /api/data`: 릴리스 데이터 조회
+  - 쿼리 파라미터:
+    - `startDate`: 시작일 (YYYY-MM-DD)
+    - `endDate`: 종료일 (YYYY-MM-DD)
+    - `repository`: 특정 레포지토리 필터링 (선택사항)
