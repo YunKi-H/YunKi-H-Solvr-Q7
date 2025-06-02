@@ -124,6 +124,19 @@ const Dashboard: React.FC = () => {
     '#00c49f', '#ffbb28', '#ff8042', '#a4de6c', '#d0ed57'
   ];
 
+  // 평균 릴리스 간격 계산
+  const sortedDates = data
+    .map(item => new Date(item.published_at_iso || item.published_at))
+    .filter(date => !isNaN(date.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  const averageReleaseInterval = sortedDates.length > 1
+    ? Math.round(
+        (sortedDates[sortedDates.length - 1].getTime() - sortedDates[0].getTime()) /
+        (1000 * 60 * 60 * 24 * (sortedDates.length - 1))
+      )
+    : 0;
+
   if (loading) {
     return <Typography>데이터를 불러오는 중...</Typography>;
   }
@@ -241,7 +254,7 @@ const Dashboard: React.FC = () => {
               <Typography variant="h5" gutterBottom>
                 전체 통계
               </Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
                 <Box>
                   <Typography variant="subtitle1">총 릴리스 수</Typography>
                   <Typography variant="h4">{data.length}</Typography>
@@ -253,15 +266,9 @@ const Dashboard: React.FC = () => {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="subtitle1">초안</Typography>
+                  <Typography variant="subtitle1">평균 릴리스 간격</Typography>
                   <Typography variant="h4">
-                    {data.filter(item => item.is_draft === 'true').length}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="subtitle1">릴리스 노트 포함</Typography>
-                  <Typography variant="h4">
-                    {data.filter(item => item.has_release_note === 'true').length}
+                    {averageReleaseInterval}일
                   </Typography>
                 </Box>
               </Box>
