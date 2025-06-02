@@ -2,6 +2,8 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import env from './config/env'
 import { createRoutes } from './routes'
+import { FastifyInstance } from 'fastify'
+import { GitHubReleaseScheduler } from './scheduler/githubReleaseScheduler'
 
 // Fastify 인스턴스 생성
 const fastify = Fastify({
@@ -16,6 +18,16 @@ const fastify = Fastify({
     }
   }
 })
+
+// 스케줄러 초기화
+const scheduler = new GitHubReleaseScheduler(
+  env.GITHUB_TOKEN,
+  env.REPOSITORIES,
+  env.DATA_PATH
+)
+
+// 스케줄러 시작
+scheduler.startScheduler(env.UPDATE_INTERVAL)
 
 // 서버 시작 함수
 async function start() {

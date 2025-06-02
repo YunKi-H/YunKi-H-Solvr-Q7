@@ -16,6 +16,10 @@ interface Env {
   DATABASE_URL: string
   CORS_ORIGIN: string
   LOG_LEVEL: string
+  GITHUB_TOKEN: string
+  REPOSITORIES: string[]
+  DATA_PATH: string
+  UPDATE_INTERVAL: number
 }
 
 // 환경 변수 기본값 설정
@@ -25,7 +29,11 @@ const env: Env = {
   NODE_ENV: (process.env.NODE_ENV as Env['NODE_ENV']) || 'development',
   DATABASE_URL: process.env.DATABASE_URL || './data/database.sqlite',
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  LOG_LEVEL: process.env.LOG_LEVEL || 'info'
+  LOG_LEVEL: process.env.LOG_LEVEL || 'info',
+  GITHUB_TOKEN: process.env.GITHUB_TOKEN || '',
+  REPOSITORIES: (process.env.REPOSITORIES || '').split(',').filter(Boolean),
+  DATA_PATH: process.env.DATA_PATH || './data',
+  UPDATE_INTERVAL: parseInt(process.env.UPDATE_INTERVAL || '60', 10)
 }
 
 export default env
