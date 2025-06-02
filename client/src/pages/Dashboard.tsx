@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, Typography, Box } from '@mui/material';
+import { Card, CardContent, Typography, Box, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
@@ -34,6 +34,7 @@ const Dashboard: React.FC = () => {
   const [data, setData] = useState<ReleaseData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRepo, setSelectedRepo] = useState<string>('all');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,8 +57,16 @@ const Dashboard: React.FC = () => {
     fetchData();
   }, []);
 
+  // 선택된 레포지토리에 따라 데이터 필터링
+  const filteredData = selectedRepo === 'all' 
+    ? data 
+    : data.filter(item => item.repository === selectedRepo);
+
+  // 모든 레포지토리 목록 가져오기 (원본 데이터에서)
+  const repositories = Array.from(new Set(data.map(item => item.repository)));
+
   // 레포지토리별 월별 릴리스 수 계산
-  const monthlyData = data.reduce((acc: { [key: string]: { [key: string]: number } }, curr) => {
+  const monthlyData = filteredData.reduce((acc: { [key: string]: { [key: string]: number } }, curr) => {
     const dateStr = curr.published_at_iso || curr.published_at;
     const date = new Date(dateStr);
     
@@ -77,15 +86,12 @@ const Dashboard: React.FC = () => {
   }, {});
 
   // 모든 월 목록 구하기
-  const allMonths = Array.from(new Set(data.map(item => {
+  const allMonths = Array.from(new Set(filteredData.map(item => {
     const dateStr = item.published_at_iso || item.published_at;
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return null;
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   }))).filter((v): v is string => !!v).sort();
-
-  // 모든 레포지토리 목록 가져오기
-  const repositories = Array.from(new Set(data.map(item => item.repository)));
 
   // 월별 데이터 생성 (모든 월-레포지토리 조합에 대해 값이 없으면 0)
   const chartData: MonthlyData[] = allMonths.map(month => {
@@ -98,7 +104,7 @@ const Dashboard: React.FC = () => {
   });
 
   // 요일별 릴리스 수 계산
-  const weekdayData = data.reduce((acc: { [key: string]: number }, curr) => {
+  const weekdayData = filteredData.reduce((acc: { [key: string]: number }, curr) => {
     const weekday = curr.weekday;
     acc[weekday] = (acc[weekday] || 0) + 1;
     return acc;
@@ -111,9 +117,9 @@ const Dashboard: React.FC = () => {
 
   // 릴리스 타입 분석 데이터
   const releaseTypeData = [
-    { name: '일반 릴리스', value: data.filter(item => item.is_prerelease === 'false' && item.is_draft === 'false').length },
-    { name: '프리릴리스', value: data.filter(item => item.is_prerelease === 'true').length },
-    { name: '초안', value: data.filter(item => item.is_draft === 'true').length }
+    { name: '일반 릴리스', value: filteredData.filter(item => item.is_prerelease === 'false' && item.is_draft === 'false').length },
+    { name: '프리릴리스', value: filteredData.filter(item => item.is_prerelease === 'true').length },
+    { name: '초안', value: filteredData.filter(item => item.is_draft === 'true').length }
   ];
 
   const TYPE_COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
@@ -125,7 +131,7 @@ const Dashboard: React.FC = () => {
   ];
 
   // 평균 릴리스 간격 계산
-  const sortedDates = data
+  const sortedDates = filteredData
     .map(item => new Date(item.published_at_iso || item.published_at))
     .filter(date => !isNaN(date.getTime()))
     .sort((a, b) => a.getTime() - b.getTime());
@@ -152,6 +158,24 @@ const Dashboard: React.FC = () => {
   return (
     <Box sx={{ padding: '20px' }}>
       <Box sx={{ display: 'grid', gap: 3 }}>
+        <Box>
+          <FormControl fullWidth sx={{ mb: 3 }}>
+            <InputLabel>레포지토리 선택</InputLabel>
+            <Select
+              value={selectedRepo}
+              label="레포지토리 선택"
+              onChange={(e) => setSelectedRepo(e.target.value)}
+            >
+              <MenuItem value="all">전체</MenuItem>
+              {repositories.map((repo) => (
+                <MenuItem key={repo} value={repo}>
+                  {repo.split('/')[1] || repo}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
         <Box>
           <Card>
             <CardContent>
@@ -257,12 +281,12 @@ const Dashboard: React.FC = () => {
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
                 <Box>
                   <Typography variant="subtitle1">총 릴리스 수</Typography>
-                  <Typography variant="h4">{data.length}</Typography>
+                  <Typography variant="h4">{filteredData.length}</Typography>
                 </Box>
                 <Box>
                   <Typography variant="subtitle1">프리릴리스</Typography>
                   <Typography variant="h4">
-                    {data.filter(item => item.is_prerelease === 'true').length}
+                    {filteredData.filter(item => item.is_prerelease === 'true').length}
                   </Typography>
                 </Box>
                 <Box>
